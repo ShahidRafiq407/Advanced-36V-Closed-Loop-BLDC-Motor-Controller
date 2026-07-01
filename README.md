@@ -41,53 +41,108 @@ Below is the schematic flowchart illustrating the power stages, control logic, a
 
 ```mermaid
 flowchart TD
-    classDef topZone fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
-    classDef midZone fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
-    classDef botZone fill:#ffebee,stroke:#d32f2f,stroke-width:2px;
-    classDef motor fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
-
-    subgraph Z1 [ZONE 1: TOP - Low Voltage & Brain]
-        BUCK[LM2596 Buck Converter]
-        ESP[ESP32 Controller]
-        HALL[Hall Sensors]
-        
-        BUCK -- "Output: 5V & Logic GND" --> ESP
-        ESP -. "Reads Position" .-> HALL
+    subgraph Z1 [ZONE 1 - TOP: Brain and Power Regulator]
+        BUCK["LM2596 Buck Converter"]
+        ESP["ESP32 DevKit V1"]
+        HA["Hall-A"]
+        HB["Hall-B"]
+        HC["Hall-C"]
     end
-    class Z1 topZone
 
-    subgraph Z2 [ZONE 2: CENTER - Gate Drivers]
-        IRA[IR2110 IC - Phase A]
-        IRB[IR2110 IC - Phase B]
-        IRC[IR2110 IC - Phase C]
+    subgraph Z2 [ZONE 2 - CENTER: Gate Drivers]
+        IRA["IR2110-A"]
+        IRB["IR2110-B"]
+        IRC["IR2110-C"]
     end
-    class Z2 midZone
 
-    subgraph Z3 [ZONE 3: BOTTOM - High Power]
-        BAT[36V Battery + 12V Adapter]
-        MA[Phase A: M1 & M4 MOSFETs]
-        MB[Phase B: M2 & M5 MOSFETs]
-        MC[Phase C: M3 & M6 MOSFETs]
-        
-        BAT -- "36V Power & Star GND" --> MA & MB & MC
+    subgraph Z3 [ZONE 3 - BOTTOM: Power Stage]
+        BAT["36V Battery"]
+        ADAPT["12V Adapter"]
+        M1["M1 High-Side"]
+        M4["M4 Low-Side"]
+        M2["M2 High-Side"]
+        M5["M5 Low-Side"]
+        M3["M3 High-Side"]
+        M6["M6 Low-Side"]
+        PA(("Phase A"))
+        PB(("Phase B"))
+        PC(("Phase C"))
     end
-    class Z3 botZone
 
-    MOTOR((3-Phase BLDC Motor))
-    class MOTOR motor
+    MOTOR(("3-Phase BLDC Motor"))
 
-    %% Connections between Zones
-    ESP == "PWM Control Signals" ==> IRA & IRB & IRC
-    BAT -- "12V Supply" --> IRA & IRB & IRC
-    BAT -- "12V Supply" --> BUCK
+    BAT -->|"36V+ → Drain"| M1
+    BAT -->|"36V+ → Drain"| M2
+    BAT -->|"36V+ → Drain"| M3
+    ADAPT -->|"12V → Pin3 VCC"| IRA
+    ADAPT -->|"12V → Pin3 VCC"| IRB
+    ADAPT -->|"12V → Pin3 VCC"| IRC
+    ADAPT -->|"12V → IN+"| BUCK
+    BUCK -->|"5V OUT+ → VIN"| ESP
 
-    IRA == "Gate Drive" ==> MA
-    IRB == "Gate Drive" ==> MB
-    IRC == "Gate Drive" ==> MC
+    HA -->|"Signal → GPIO22"| ESP
+    HB -->|"Signal → GPIO19"| ESP
+    HC -->|"Signal → GPIO21"| ESP
 
-    MA == "Phase A Power" ==> MOTOR
-    MB == "Phase B Power" ==> MOTOR
-    MC == "Phase C Power" ==> MOTOR
+    ESP -->|"GPIO25 → Pin10 HIN"| IRA
+    ESP -->|"GPIO26 → Pin12 LIN"| IRA
+    ESP -->|"GPIO27 → Pin10 HIN"| IRB
+    ESP -->|"GPIO14 → Pin12 LIN"| IRB
+    ESP -->|"GPIO32 → Pin10 HIN"| IRC
+    ESP -->|"GPIO33 → Pin12 LIN"| IRC
+
+    IRA -->|"Pin7 HO → 10R → Gate"| M1
+    IRA -->|"Pin1 LO → 10R → Gate"| M4
+    IRB -->|"Pin7 HO → 10R → Gate"| M2
+    IRB -->|"Pin1 LO → 10R → Gate"| M5
+    IRC -->|"Pin7 HO → 10R → Gate"| M3
+    IRC -->|"Pin1 LO → 10R → Gate"| M6
+
+    M1 -->|"Source"| PA
+    M4 -->|"Drain"| PA
+    M2 -->|"Source"| PB
+    M5 -->|"Drain"| PB
+    M3 -->|"Source"| PC
+    M6 -->|"Drain"| PC
+
+    IRA -.->|"Pin5 VS Sense"| PA
+    IRB -.->|"Pin5 VS Sense"| PB
+    IRC -.->|"Pin5 VS Sense"| PC
+
+    PA --> MOTOR
+    PB --> MOTOR
+    PC --> MOTOR
+
+    style BAT fill:#ff4444,stroke:#cc0000,color:#fff
+    style ADAPT fill:#ff8800,stroke:#cc6600,color:#fff
+    style BUCK fill:#00cc66,stroke:#009944,color:#fff
+    style ESP fill:#2196F3,stroke:#1565C0,color:#fff
+    style HA fill:#aa44ff,stroke:#7722cc,color:#fff
+    style HB fill:#aa44ff,stroke:#7722cc,color:#fff
+    style HC fill:#aa44ff,stroke:#7722cc,color:#fff
+    style IRA fill:#ff6600,stroke:#cc4400,color:#fff
+    style IRB fill:#ff6600,stroke:#cc4400,color:#fff
+    style IRC fill:#ff6600,stroke:#cc4400,color:#fff
+    style M1 fill:#e53935,stroke:#b71c1c,color:#fff
+    style M2 fill:#e53935,stroke:#b71c1c,color:#fff
+    style M3 fill:#e53935,stroke:#b71c1c,color:#fff
+    style M4 fill:#c62828,stroke:#8e0000,color:#fff
+    style M5 fill:#c62828,stroke:#8e0000,color:#fff
+    style M6 fill:#c62828,stroke:#8e0000,color:#fff
+    style PA fill:#ffcc00,stroke:#cc9900,color:#000
+    style PB fill:#ffcc00,stroke:#cc9900,color:#000
+    style PC fill:#ffcc00,stroke:#cc9900,color:#000
+    style MOTOR fill:#00bfa5,stroke:#00897b,color:#fff
+
+    linkStyle 0,1,2 stroke:#e60000,stroke-width:3px
+    linkStyle 3,4,5,6 stroke:#ff8800,stroke-width:2px
+    linkStyle 7 stroke:#00cc66,stroke-width:2px
+    linkStyle 8,9,10 stroke:#aa44ff,stroke-width:2px
+    linkStyle 11,12,13,14,15,16 stroke:#2196F3,stroke-width:2px
+    linkStyle 17,18,19,20,21,22 stroke:#ff6600,stroke-width:2px
+    linkStyle 23,24,25,26,27,28 stroke:#e60000,stroke-width:2px
+    linkStyle 29,30,31 stroke:#9b59b6,stroke-width:2px,stroke-dasharray:5
+    linkStyle 32,33,34 stroke:#00bfa5,stroke-width:3px
 ```
 
 ---
