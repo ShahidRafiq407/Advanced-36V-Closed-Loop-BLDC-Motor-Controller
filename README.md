@@ -41,84 +41,53 @@ Below is the schematic flowchart illustrating the power stages, control logic, a
 
 ```mermaid
 flowchart TD
-    subgraph PowerSupply [Power Supply Architecture]
-        BAT[36V BATTERY] -->|20A/30A DC FUSE| BUS36[36V BUS+]
-        BAT --> GND_PWR[POWER STAR GROUND]
-        CAP[1000uF + 0.1uF] --- BUS36 & GND_PWR
-        
-        ADAPT[12V DRIVER SUPPLY] --> V12[+12V DRIVER RAIL]
-        ADAPT --> GND_PWR
-        
-        BUCK[LM2596 BUCK MODULE] -->|IN+| V12
-        BUCK -->|IN-| GND_PWR
-        BUCK -->|OUT+| V5[+5V LOGIC RAIL]
-        BUCK -->|OUT-| GND_LOG[CLEAN LOGIC GROUND]
-        
-        GND_PWR -.->|SINGLE POINT GROUND LINK| GND_LOG
-    end
+    classDef topZone fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+    classDef midZone fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+    classDef botZone fill:#ffebee,stroke:#d32f2f,stroke-width:2px;
+    classDef motor fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
 
-    subgraph BrainFeedback [Brain & Feedback]
-        ESP[ESP32 DevKit V1]
-        V5 -->|VIN| ESP
-        GND_LOG -->|GND| ESP
+    subgraph Z1 [ZONE 1: TOP - Low Voltage & Brain]
+        BUCK[LM2596 Buck Converter]
+        ESP[ESP32 Controller]
+        HALL[Hall Sensors]
         
-        HALL[Hall Sensors A, B, C]
-        V5 -->|VCC| HALL
-        GND_LOG -->|GND| HALL
-        HALL -->|GPIO 22, 19, 21| ESP
-        
-        PULLUP[3x 10k Pull-ups] --- HALL
+        BUCK -- "Output: 5V & Logic GND" --> ESP
+        ESP -. "Reads Position" .-> HALL
     end
+    class Z1 topZone
 
-    subgraph GateDriver [Gate Driver Interface IR2110]
-        IR_A[IR2110-A]
-        IR_B[IR2110-B]
-        IR_C[IR2110-C]
-        
-        V12 -->|Pin 3: VCC| IR_A & IR_B & IR_C
-        V5 -->|Pin 9: VDD| IR_A & IR_B & IR_C
-        GND_LOG -->|Pin 13: VSS| IR_A & IR_B & IR_C
-        
-        ESP -->|PWM HIN/LIN| IR_A & IR_B & IR_C
+    subgraph Z2 [ZONE 2: CENTER - Gate Drivers]
+        IRA[IR2110 IC - Phase A]
+        IRB[IR2110 IC - Phase B]
+        IRC[IR2110 IC - Phase C]
     end
+    class Z2 midZone
 
-    subgraph PowerStage [The Muscle - MOSFET Power Stage]
-        M1[M1 High Side]
-        M4[M4 Low Side]
-        M2[M2 High Side]
-        M5[M5 Low Side]
-        M3[M3 High Side]
-        M6[M6 Low Side]
+    subgraph Z3 [ZONE 3: BOTTOM - High Power]
+        BAT[36V Battery + 12V Adapter]
+        MA[Phase A: M1 & M4 MOSFETs]
+        MB[Phase B: M2 & M5 MOSFETs]
+        MC[Phase C: M3 & M6 MOSFETs]
         
-        BUS36 -->|Drain| M1 & M2 & M3
-        M4 & M5 & M6 -->|Source| GND_PWR
-        
-        IR_A -->|Pin 7: HO| M1
-        IR_A -->|Pin 1: LO| M4
-        IR_B -->|Pin 7: HO| M2
-        IR_B -->|Pin 1: LO| M5
-        IR_C -->|Pin 7: HO| M3
-        IR_C -->|Pin 1: LO| M6
-        
-        M1 -->|Phase A| PHA((PHASE A))
-        M4 --> PHA
-        IR_A -.->|Pin 5: VS Sense| PHA
-        
-        M2 -->|Phase B| PHB((PHASE B))
-        M5 --> PHB
-        IR_B -.->|Pin 5: VS Sense| PHB
-        
-        M3 -->|Phase C| PHC((PHASE C))
-        M6 --> PHC
-        IR_C -.->|Pin 5: VS Sense| PHC
-        
-        PHA & PHB & PHC ==> MOTOR((3-Phase BLDC Motor))
+        BAT -- "36V Power & Star GND" --> MA & MB & MC
     end
-    
-    style BUS36 stroke:#e60000,stroke-width:4px
-    style GND_PWR stroke:#000000,stroke-width:4px
-    style V12 stroke:#f0c000,stroke-width:3px
-    style V5 stroke:#ff8c00,stroke-width:2px
+    class Z3 botZone
+
+    MOTOR((3-Phase BLDC Motor))
+    class MOTOR motor
+
+    %% Connections between Zones
+    ESP == "PWM Control Signals" ==> IRA & IRB & IRC
+    BAT -- "12V Supply" --> IRA & IRB & IRC
+    BAT -- "12V Supply" --> BUCK
+
+    IRA == "Gate Drive" ==> MA
+    IRB == "Gate Drive" ==> MB
+    IRC == "Gate Drive" ==> MC
+
+    MA == "Phase A Power" ==> MOTOR
+    MB == "Phase B Power" ==> MOTOR
+    MC == "Phase C Power" ==> MOTOR
 ```
 
 ---
