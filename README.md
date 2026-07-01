@@ -41,7 +41,7 @@ Below is the schematic flowchart illustrating the power stages, control logic, a
 
 ```mermaid
 flowchart TD
-    subgraph Power Supply Architecture
+    subgraph PowerSupply [Power Supply Architecture]
         BAT[36V BATTERY] -->|20A/30A DC FUSE| BUS36[36V BUS+]
         BAT --> GND_PWR[POWER STAR GROUND]
         CAP[1000uF + 0.1uF] --- BUS36 & GND_PWR
@@ -57,7 +57,7 @@ flowchart TD
         GND_PWR -.->|SINGLE POINT GROUND LINK| GND_LOG
     end
 
-    subgraph Brain & Feedback
+    subgraph BrainFeedback [Brain & Feedback]
         ESP[ESP32 DevKit V1]
         V5 -->|VIN| ESP
         GND_LOG -->|GND| ESP
@@ -70,7 +70,7 @@ flowchart TD
         PULLUP[3x 10k Pull-ups] --- HALL
     end
 
-    subgraph Gate Driver Interface (IR2110 x3)
+    subgraph GateDriver [Gate Driver Interface IR2110]
         IR_A[IR2110-A]
         IR_B[IR2110-B]
         IR_C[IR2110-C]
@@ -82,7 +82,7 @@ flowchart TD
         ESP -->|PWM HIN/LIN| IR_A & IR_B & IR_C
     end
 
-    subgraph The Muscle (MOSFET Power Stage)
+    subgraph PowerStage [The Muscle - MOSFET Power Stage]
         M1[M1 High Side]
         M4[M4 Low Side]
         M2[M2 High Side]
@@ -112,7 +112,7 @@ flowchart TD
         M6 --> PHC
         IR_C -.->|Pin 5: VS Sense| PHC
         
-        PHA & PHB & PHC ====> MOTOR((3-Phase BLDC Motor))
+        PHA & PHB & PHC ==> MOTOR((3-Phase BLDC Motor))
     end
     
     style BUS36 stroke:#e60000,stroke-width:4px
