@@ -35,54 +35,63 @@ This project is a high-power, closed-loop 3-phase BLDC motor controller using an
 
 ---
 
-## System Architecture (Mermaid Diagram)
+## Wiring Diagrams
 
-Below is the schematic flowchart illustrating the power stages, control logic, and driver routing:
+### Zone 1 — Power Supply (12V Adapter → Buck → ESP32)
 
 ```mermaid
-flowchart TD
-    subgraph Z1 [ZONE 1 - TOP: Brain and Power Regulator]
-        BUCK["LM2596 Buck Converter"]
-        ESP["ESP32 DevKit V1"]
-        HA["Hall-A"]
-        HB["Hall-B"]
-        HC["Hall-C"]
-    end
+flowchart LR
+    ADAPT["12V DC<br/>Adapter"]
+    BUCK["LM2596 Buck<br/>Converter<br/>OUT = 5.0V"]
+    ESP["ESP32<br/>DevKit V1"]
+    IRA["IR2110-A"]
+    IRB["IR2110-B"]
+    IRC["IR2110-C"]
 
-    subgraph Z2 [ZONE 2 - CENTER: Gate Drivers]
-        IRA["IR2110-A"]
-        IRB["IR2110-B"]
-        IRC["IR2110-C"]
-    end
+    ADAPT -->|"12V+ → IN+"| BUCK
+    ADAPT -->|"GND → IN-"| BUCK
+    BUCK -->|"OUT+ 5V → VIN"| ESP
+    BUCK -->|"OUT- → GND"| ESP
+    ADAPT -->|"12V+ → Pin3 VCC"| IRA
+    ADAPT -->|"12V+ → Pin3 VCC"| IRB
+    ADAPT -->|"12V+ → Pin3 VCC"| IRC
+    BUCK -->|"5V → Pin9 VDD"| IRA
+    BUCK -->|"5V → Pin9 VDD"| IRB
+    BUCK -->|"5V → Pin9 VDD"| IRC
 
-    subgraph Z3 [ZONE 3 - BOTTOM: Power Stage]
-        BAT["36V Battery"]
-        ADAPT["12V Adapter"]
-        M1["M1 High-Side"]
-        M4["M4 Low-Side"]
-        M2["M2 High-Side"]
-        M5["M5 Low-Side"]
-        M3["M3 High-Side"]
-        M6["M6 Low-Side"]
-        PA(("Phase A"))
-        PB(("Phase B"))
-        PC(("Phase C"))
-    end
+    linkStyle 0 stroke:#ff8800,stroke-width:3px
+    linkStyle 1 stroke:#000000,stroke-width:3px
+    linkStyle 2 stroke:#00cc66,stroke-width:3px
+    linkStyle 3 stroke:#000000,stroke-width:3px
+    linkStyle 4 stroke:#ff8800,stroke-width:3px
+    linkStyle 5 stroke:#ff8800,stroke-width:3px
+    linkStyle 6 stroke:#ff8800,stroke-width:3px
+    linkStyle 7 stroke:#00cc66,stroke-width:3px
+    linkStyle 8 stroke:#00cc66,stroke-width:3px
+    linkStyle 9 stroke:#00cc66,stroke-width:3px
+```
 
-    MOTOR(("3-Phase BLDC Motor"))
+### Zone 2 — Signal & Control (Hall Sensors → ESP32 → IR2110 PWM)
 
-    BAT -->|"36V+ → Drain"| M1
-    BAT -->|"36V+ → Drain"| M2
-    BAT -->|"36V+ → Drain"| M3
-    ADAPT -->|"12V → Pin3 VCC"| IRA
-    ADAPT -->|"12V → Pin3 VCC"| IRB
-    ADAPT -->|"12V → Pin3 VCC"| IRC
-    ADAPT -->|"12V → IN+"| BUCK
-    BUCK -->|"5V OUT+ → VIN"| ESP
+```mermaid
+flowchart LR
+    HA["Hall-A<br/>Sensor"]
+    HB["Hall-B<br/>Sensor"]
+    HC["Hall-C<br/>Sensor"]
+    PUA((10kΩ))
+    PUB((10kΩ))
+    PUC((10kΩ))
+    ESP["ESP32<br/>DevKit V1"]
+    IRA["IR2110-A"]
+    IRB["IR2110-B"]
+    IRC["IR2110-C"]
 
-    HA -->|"Signal → GPIO22"| ESP
-    HB -->|"Signal → GPIO19"| ESP
-    HC -->|"Signal → GPIO21"| ESP
+    HA -->|"Signal → GPIO22"| PUA
+    PUA --> ESP
+    HB -->|"Signal → GPIO19"| PUB
+    PUB --> ESP
+    HC -->|"Signal → GPIO21"| PUC
+    PUC --> ESP
 
     ESP -->|"GPIO25 → Pin10 HIN"| IRA
     ESP -->|"GPIO26 → Pin12 LIN"| IRA
@@ -91,58 +100,158 @@ flowchart TD
     ESP -->|"GPIO32 → Pin10 HIN"| IRC
     ESP -->|"GPIO33 → Pin12 LIN"| IRC
 
-    IRA -->|"Pin7 HO → 10R → Gate"| M1
-    IRA -->|"Pin1 LO → 10R → Gate"| M4
-    IRB -->|"Pin7 HO → 10R → Gate"| M2
-    IRB -->|"Pin1 LO → 10R → Gate"| M5
-    IRC -->|"Pin7 HO → 10R → Gate"| M3
-    IRC -->|"Pin1 LO → 10R → Gate"| M6
+    linkStyle 0 stroke:#aa44ff,stroke-width:3px
+    linkStyle 1 stroke:#aa44ff,stroke-width:3px
+    linkStyle 2 stroke:#aa44ff,stroke-width:3px
+    linkStyle 3 stroke:#aa44ff,stroke-width:3px
+    linkStyle 4 stroke:#aa44ff,stroke-width:3px
+    linkStyle 5 stroke:#aa44ff,stroke-width:3px
+    linkStyle 6 stroke:#2196F3,stroke-width:3px
+    linkStyle 7 stroke:#2196F3,stroke-width:3px
+    linkStyle 8 stroke:#2196F3,stroke-width:3px
+    linkStyle 9 stroke:#2196F3,stroke-width:3px
+    linkStyle 10 stroke:#2196F3,stroke-width:3px
+    linkStyle 11 stroke:#2196F3,stroke-width:3px
+```
 
-    M1 -->|"Source"| PA
-    M4 -->|"Drain"| PA
-    M2 -->|"Source"| PB
-    M5 -->|"Drain"| PB
-    M3 -->|"Source"| PC
-    M6 -->|"Drain"| PC
+### Zone 3 — Power Stage (IR2110 → MOSFETs → Motor)
 
-    IRA -.->|"Pin5 VS Sense"| PA
-    IRB -.->|"Pin5 VS Sense"| PB
-    IRC -.->|"Pin5 VS Sense"| PC
+```mermaid
+flowchart LR
+    BAT["36V<br/>Battery"]
+    IRA["IR2110-A"]
+    IRB["IR2110-B"]
+    IRC["IR2110-C"]
+    R1((10Ω))
+    R2((10Ω))
+    R3((10Ω))
+    R4((10Ω))
+    R5((10Ω))
+    R6((10Ω))
+    M1["M1<br/>High-Side"]
+    M4["M4<br/>Low-Side"]
+    M2["M2<br/>High-Side"]
+    M5["M5<br/>Low-Side"]
+    M3["M3<br/>High-Side"]
+    M6["M6<br/>Low-Side"]
+    MOTOR(("BLDC<br/>Motor"))
 
-    PA --> MOTOR
-    PB --> MOTOR
-    PC --> MOTOR
+    BAT -->|"36V+ → Drain"| M1
+    BAT -->|"36V+ → Drain"| M2
+    BAT -->|"36V+ → Drain"| M3
 
-    style BAT fill:#ff4444,stroke:#cc0000,color:#fff
-    style ADAPT fill:#ff8800,stroke:#cc6600,color:#fff
-    style BUCK fill:#00cc66,stroke:#009944,color:#fff
-    style ESP fill:#2196F3,stroke:#1565C0,color:#fff
-    style HA fill:#aa44ff,stroke:#7722cc,color:#fff
-    style HB fill:#aa44ff,stroke:#7722cc,color:#fff
-    style HC fill:#aa44ff,stroke:#7722cc,color:#fff
-    style IRA fill:#ff6600,stroke:#cc4400,color:#fff
-    style IRB fill:#ff6600,stroke:#cc4400,color:#fff
-    style IRC fill:#ff6600,stroke:#cc4400,color:#fff
-    style M1 fill:#e53935,stroke:#b71c1c,color:#fff
-    style M2 fill:#e53935,stroke:#b71c1c,color:#fff
-    style M3 fill:#e53935,stroke:#b71c1c,color:#fff
-    style M4 fill:#c62828,stroke:#8e0000,color:#fff
-    style M5 fill:#c62828,stroke:#8e0000,color:#fff
-    style M6 fill:#c62828,stroke:#8e0000,color:#fff
-    style PA fill:#ffcc00,stroke:#cc9900,color:#000
-    style PB fill:#ffcc00,stroke:#cc9900,color:#000
-    style PC fill:#ffcc00,stroke:#cc9900,color:#000
-    style MOTOR fill:#00bfa5,stroke:#00897b,color:#fff
+    IRA -->|"Pin7 HO"| R1
+    R1 -->|"→ Gate"| M1
+    IRA -->|"Pin1 LO"| R2
+    R2 -->|"→ Gate"| M4
 
-    linkStyle 0,1,2 stroke:#e60000,stroke-width:3px
-    linkStyle 3,4,5,6 stroke:#ff8800,stroke-width:2px
-    linkStyle 7 stroke:#00cc66,stroke-width:2px
-    linkStyle 8,9,10 stroke:#aa44ff,stroke-width:2px
-    linkStyle 11,12,13,14,15,16 stroke:#2196F3,stroke-width:2px
-    linkStyle 17,18,19,20,21,22 stroke:#ff6600,stroke-width:2px
-    linkStyle 23,24,25,26,27,28 stroke:#e60000,stroke-width:2px
-    linkStyle 29,30,31 stroke:#9b59b6,stroke-width:2px,stroke-dasharray:5
-    linkStyle 32,33,34 stroke:#00bfa5,stroke-width:3px
+    IRB -->|"Pin7 HO"| R3
+    R3 -->|"→ Gate"| M2
+    IRB -->|"Pin1 LO"| R4
+    R4 -->|"→ Gate"| M5
+
+    IRC -->|"Pin7 HO"| R5
+    R5 -->|"→ Gate"| M3
+    IRC -->|"Pin1 LO"| R6
+    R6 -->|"→ Gate"| M6
+
+    M1 -->|"Source → Phase A"| MOTOR
+    M4 -->|"Drain → Phase A"| MOTOR
+    M2 -->|"Source → Phase B"| MOTOR
+    M5 -->|"Drain → Phase B"| MOTOR
+    M3 -->|"Source → Phase C"| MOTOR
+    M6 -->|"Drain → Phase C"| MOTOR
+
+    linkStyle 0 stroke:#e60000,stroke-width:3px
+    linkStyle 1 stroke:#e60000,stroke-width:3px
+    linkStyle 2 stroke:#e60000,stroke-width:3px
+    linkStyle 3 stroke:#ff6600,stroke-width:3px
+    linkStyle 4 stroke:#ff6600,stroke-width:3px
+    linkStyle 5 stroke:#ff6600,stroke-width:3px
+    linkStyle 6 stroke:#ff6600,stroke-width:3px
+    linkStyle 7 stroke:#ff6600,stroke-width:3px
+    linkStyle 8 stroke:#ff6600,stroke-width:3px
+    linkStyle 9 stroke:#ff6600,stroke-width:3px
+    linkStyle 10 stroke:#ff6600,stroke-width:3px
+    linkStyle 11 stroke:#ff6600,stroke-width:3px
+    linkStyle 12 stroke:#ff6600,stroke-width:3px
+    linkStyle 13 stroke:#ff6600,stroke-width:3px
+    linkStyle 14 stroke:#ff6600,stroke-width:3px
+    linkStyle 15 stroke:#00a000,stroke-width:3px
+    linkStyle 16 stroke:#00a000,stroke-width:3px
+    linkStyle 17 stroke:#0066ff,stroke-width:3px
+    linkStyle 18 stroke:#0066ff,stroke-width:3px
+    linkStyle 19 stroke:#8000ff,stroke-width:3px
+    linkStyle 20 stroke:#8000ff,stroke-width:3px
+```
+
+### Zone 4 — Protection & Filtering (Capacitors & Diodes)
+
+```mermaid
+flowchart LR
+    BAT["36V Battery"]
+    FUSE["DC Fuse"]
+    BAT -->|"36V+ →"| FUSE
+
+    IRA["IR2110-A"]
+    IRB["IR2110-B"]
+    IRC["IR2110-C"]
+
+    D_A["UF4007 Diode"]
+    C_BA[("10uF Bootstrap")]
+    C_15A[("15uF Tank")]
+    C_M1A[("0.1uF Ceramic")]
+    C_L1A[("0.1uF Ceramic")]
+
+    IRA -->|"Pin3 → Anode"| D_A
+    D_A -->|"Cathode → Pin6"| IRA
+    IRA -->|"Pin6(+) → Pin5(-)"| C_BA
+    IRA -->|"Pin3(+) → Pin2(-)"| C_15A
+    IRA -->|"Pin3 → Pin2"| C_M1A
+    IRA -->|"Pin9 → Pin13"| C_L1A
+
+    D_B["UF4007 Diode"]
+    C_BB[("10uF Bootstrap")]
+    C_M1B[("0.1uF Ceramic")]
+    C_L1B[("0.1uF Ceramic")]
+
+    IRB -->|"Pin3 → Anode"| D_B
+    D_B -->|"Cathode → Pin6"| IRB
+    IRB -->|"Pin6(+) → Pin5(-)"| C_BB
+    IRB -->|"Pin3 → Pin2"| C_M1B
+    IRB -->|"Pin9 → Pin13"| C_L1B
+
+    D_C["UF4007 Diode"]
+    C_BC[("10uF Bootstrap")]
+    C_15C[("15uF Tank")]
+    C_M1C[("0.1uF Ceramic")]
+    C_L1C[("0.1uF Ceramic")]
+
+    IRC -->|"Pin3 → Anode"| D_C
+    D_C -->|"Cathode → Pin6"| IRC
+    IRC -->|"Pin6(+) → Pin5(-)"| C_BC
+    IRC -->|"Pin3(+) → Pin2(-)"| C_15C
+    IRC -->|"Pin3 → Pin2"| C_M1C
+    IRC -->|"Pin9 → Pin13"| C_L1C
+
+    linkStyle 0 stroke:#e60000,stroke-width:3px
+    linkStyle 1 stroke:#aa44ff,stroke-width:2px
+    linkStyle 2 stroke:#aa44ff,stroke-width:2px
+    linkStyle 3 stroke:#aa44ff,stroke-width:2px
+    linkStyle 4 stroke:#aa44ff,stroke-width:2px
+    linkStyle 5 stroke:#aa44ff,stroke-width:2px
+    linkStyle 6 stroke:#aa44ff,stroke-width:2px
+    linkStyle 7 stroke:#2196F3,stroke-width:2px
+    linkStyle 8 stroke:#2196F3,stroke-width:2px
+    linkStyle 9 stroke:#2196F3,stroke-width:2px
+    linkStyle 10 stroke:#2196F3,stroke-width:2px
+    linkStyle 11 stroke:#2196F3,stroke-width:2px
+    linkStyle 12 stroke:#00a000,stroke-width:2px
+    linkStyle 13 stroke:#00a000,stroke-width:2px
+    linkStyle 14 stroke:#00a000,stroke-width:2px
+    linkStyle 15 stroke:#00a000,stroke-width:2px
+    linkStyle 16 stroke:#00a000,stroke-width:2px
+    linkStyle 17 stroke:#00a000,stroke-width:2px
 ```
 
 ---
